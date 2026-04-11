@@ -1,4 +1,7 @@
 # Changelog
+## v2.0
+- using electron
+
 ## v1.1
 - adding alarm
 - log pomodoro show Y-m-d H:i local id-ID

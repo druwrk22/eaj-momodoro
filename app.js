@@ -1,13 +1,22 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { app: electronApp } = require('electron');
 const app = express();
+const PORT = 8080;
 
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')))
 app.use(express.json());
 
-const DATA_PATH = path.join(__dirname, 'data', 'history.json');
+const DATA_PATH = path.join(electronApp.getPath('userData'), 'history.json');
+
+if (!fs.existsSync(DATA_PATH)) {
+    const dir = path.dirname(DATA_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(DATA_PATH, JSON.stringify([]));
+}
 
 app.get('/', (req, res) => {
     const history = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
@@ -33,4 +42,8 @@ app.delete('/clear-history', (req, res) => {
     res.status(200).json({ message: 'History cleared!' });
 });
 
-app.listen(3000, () => console.log('Server running on http://localhost:8080'));
+app.listen(PORT, () => {
+    console.log(`Server RUN!`);
+});
+
+module.exports = app;

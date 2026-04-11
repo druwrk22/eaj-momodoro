@@ -1,10 +1,35 @@
 {
+  "name": "momodoro",
+  "version": "1.0.0",
+  "main": "main.js",
   "dependencies": {
     "ejs": "^5.0.1",
     "express": "^5.2.1",
     "nodemon": "^3.1.14"
   },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  },
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.eaj.momodoro",
+    "productName": "Momodoro",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis", 
+      "icon": "public/img/eaj-fav.png"
+    },
+    "files": [
+      "**/*",
+      "views/**/*",
+      "public/**/*",
+      "!dist/*"
+    ]
   }
 }
