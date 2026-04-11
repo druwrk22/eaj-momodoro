@@ -1,18 +1,60 @@
-let timeLeft = 25 * 60;
+let timeLeft = localStorage.getItem('timeLeft') ? parseInt(localStorage.getItem('timeLeft')) : 25 * 60;
 let timerId = null;
 const timerDisplay = document.getElementById('timer');
 const startBtn = document.getElementById('startBtn');
-const focusTitleInput = document.getElementById('focusTitle'); 
+const focusTitleInput = document.getElementById('focusTitle');
+const alarmSound = document.getElementById('alarmSound');
+
+if (localStorage.getItem('focusTitle')) {
+    focusTitleInput.value = localStorage.getItem('focusTitle');
+}
+
+updateDisplay();
+
+if (localStorage.getItem('isRunning') === 'true') {
+    startTimer();
+}
 
 function updateDisplay() {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    localStorage.setItem('timeLeft', timeLeft);
 }
 
-async function saveSession() {
+function startTimer() {
+    focusTitleInput.disabled = true;
+    startBtn.textContent = 'Pause';
+    startBtn.classList.add('btn-danger');
+    localStorage.setItem('isRunning', 'true');
+    localStorage.setItem('focusTitle', focusTitleInput.value);
+
+    timerId = setInterval(() => {
+        timeLeft--;
+        updateDisplay();
+        
+        if (timeLeft <= 0) {
+            clearInterval(timerId);
+            finishSession(); 
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerId);
+    timerId = null;
+    startBtn.textContent = 'Resume';
+    startBtn.classList.remove('btn-danger');
+    startBtn.classList.add('btn-primary-custom');
+    focusTitleInput.disabled = false;
+    localStorage.setItem('isRunning', 'false');
+}
+
+async function finishSession() {
+    alarmSound.play().catch(e => console.log("Audio play failed:", e));
+
     const titleInput = focusTitleInput.value;
-    
+
     try {
         await fetch('/save-session', {
             method: 'POST',
@@ -20,44 +62,59 @@ async function saveSession() {
             body: JSON.stringify({
                 title: titleInput,
                 type: 'Focus',
-                date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                date: new Date().toLocaleString('id-ID').slice(0, 16)
             })
         });
         
+        // 3. Notifikasi Selesai
         Swal.fire({
-            title: 'Mantap!',
-            text: `Sesi "${titleInput}" selesai.`,
+            title: 'Sesi Selesai!',
+            text: `Tetap Semangat...`,
             icon: 'success',
             confirmButtonColor: '#6366f1',
-            borderRadius: '1.5rem'
-        }).then(() => location.reload());
+            confirmButtonText: 'Oke'
+        }).then(() => {
+            alarmSound.pause();
+            alarmSound.currentTime = 0;
+            resetToInitial(); 
+        });
 
     } catch (err) {
         console.error(err);
+        resetToInitial();
     }
+}
+
+function resetToInitial() {
+    clearInterval(timerId);
+    timerId = null;
+    timeLeft = 25 * 60; 
+
+    localStorage.removeItem('timeLeft');
+    localStorage.removeItem('isRunning');
+    localStorage.removeItem('focusTitle');
+    
+    updateDisplay();
+    focusTitleInput.value = "";
+    focusTitleInput.disabled = false;
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('btn-danger');
+    
+    location.reload();
 }
 
 startBtn.addEventListener('click', () => {
     if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
-        startBtn.textContent = 'Resume';
-        startBtn.classList.remove('btn-danger');
-        startBtn.classList.add('btn-primary-custom');
-        focusTitleInput.disabled = false; 
+        stopTimer();
         return;
     }
 
-    const currentTitle = focusTitleInput.value.trim();
-    if (currentTitle === "") {
-        focusTitleInput.classList.add('is-invalid'); 
-        
+    if (focusTitleInput.value.trim() === "") {
+        focusTitleInput.classList.add('is-invalid');
         Swal.fire({
-            title: 'Eits, bentar!',
-            text: 'Tulis dulu apa yang mau kamu kerjakan biar fokus.',
+            title: 'Eits!',
+            text: 'Tulis dulu apa yang mau dikerjakan.',
             icon: 'info',
-            confirmButtonColor: '#6366f1',
-            borderRadius: '1.5rem',
             toast: true,
             position: 'top',
             timer: 3000,
@@ -67,18 +124,7 @@ startBtn.addEventListener('click', () => {
     }
 
     focusTitleInput.classList.remove('is-invalid');
-    focusTitleInput.disabled = true; 
-    startBtn.textContent = 'Pause';
-    startBtn.classList.add('btn-danger');
-
-    timerId = setInterval(() => {
-        timeLeft--;
-        updateDisplay();
-        if (timeLeft <= 0) {
-            clearInterval(timerId);
-            saveSession();
-        }
-    }, 1000);
+    startTimer();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
@@ -87,19 +133,10 @@ document.getElementById('resetBtn').addEventListener('click', () => {
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#f43f5e',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Ya, reset!',
-        borderRadius: '1.5rem'
+        confirmButtonText: 'Ya, reset!'
     }).then((result) => {
         if (result.isConfirmed) {
-            clearInterval(timerId);
-            timerId = null;
-            timeLeft = 25 * 60;
-            updateDisplay();
-            startBtn.textContent = 'Start';
-            startBtn.classList.remove('btn-danger');
-            focusTitleInput.disabled = false;
-            focusTitleInput.value = ""; 
+            resetToInitial();
         }
     });
 });
@@ -110,8 +147,7 @@ async function clearHistory() {
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#f43f5e',
-        confirmButtonText: 'Hapus!',
-        borderRadius: '1.5rem'
+        confirmButtonText: 'Hapus!'
     });
 
     if (result.isConfirmed) {
